@@ -95,7 +95,7 @@ namespace TDious.Core.DevOps
             return new List<DevOpsTask>();
         }
 
-        public static async Task SaveCompletedHours(long taskID, double newHours)
+        public static async Task SaveCompletedHoursWithComment(long taskID, double newHours, string comment)
         {
             var settings = TDiousDataProvider.GetSettings();
             if (settings == null)
@@ -106,19 +106,38 @@ namespace TDious.Core.DevOps
             using var connection = GetConnection(settings);
             using var witClient = connection.GetClient<WorkItemTrackingHttpClient>();
 
-            // Create a patch document to replace the existing CompletedWork value
-            JsonPatchDocument patchDocument = new JsonPatchDocument
+            var id = Convert.ToInt32(taskID);
+            var currentWorkItem = await witClient.GetWorkItemAsync(id);
+
+            double oldHours = 0;
+            var completedWorkKey = "Microsoft.VSTS.Scheduling.CompletedWork";
+            if (currentWorkItem.Fields.ContainsKey(completedWorkKey))
             {
+                oldHours = (double)currentWorkItem.Fields[completedWorkKey];
+            }
+            string hours = ConvertToTimeString(newHours - oldHours);
+            string currentDescription = currentWorkItem.Fields["Microsoft.VSTS.Common.ItemDescription"]?.ToString() ?? string.Empty;
+            string updatedDescription = currentDescription + Environment.NewLine + "<br />" + DateTime.Today.ToShortDateString() + " (" + hours + "): " + comment;
+
+            // Create a patch document to replace the existing CompletedWork value
+            JsonPatchDocument patchDocument =
+            [
                 new JsonPatchOperation
                 {
                     Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Replace,
                     Path = "/fields/Microsoft.VSTS.Scheduling.CompletedWork",
                     Value = newHours
-                }
-            };
+                },
+                // Append another line to the Task description
+                new JsonPatchOperation
+                {
+                    Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Replace,
+                    Path = "/fields/Microsoft.VSTS.Common.ItemDescription",
+                    Value = updatedDescription
+                },
+            ];
 
             // Update the work item
-            var id = Convert.ToInt32(taskID);
             var updatedWorkItem = await witClient.UpdateWorkItemAsync(patchDocument, id);
         }
 
@@ -127,6 +146,40 @@ namespace TDious.Core.DevOps
             var uri = new Uri(settings.DevOpsUri);
             var credentials = new VssOAuthAccessTokenCredential(settings.DevOpsApiToken);
             return new VssConnection(uri, credentials);
+        }
+
+        private static string ConvertToTimeString(double hours)
+        {
+            // Handle special cases first
+            if (hours == 0.25)
+                return "15 mins";
+            if (hours == 0.5)
+                return "1/2 hr";
+            if (hours == 0.75)
+                return "45 mins";
+            if (hours == 1)
+                return "1 hr";
+
+            // Handle case for hours with 45 minutes (e.g., 1.75 => "1 hr 45 mins")
+            if (hours % 1 == 0.75)
+            {
+                int fullHours = (int)hours;
+                string hr = "hr";
+                if (fullHours > 1)
+                {
+                    hr += "s";
+                }
+                return $"{fullHours} {hr} {45} mins";
+            }
+
+            // For hours greater than 1 or fractional, use this general approach
+            if (hours % 1 == 0)
+            {
+                return $"{(int)hours} hrs";
+            }
+
+            // If the hours are a non-integer (like 1.5 or 2.5)
+            return $"{hours} hrs";
         }
     }
 }

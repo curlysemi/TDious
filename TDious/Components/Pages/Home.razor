@@ -6,10 +6,37 @@
     </div>
 </div>
 
+<div class="modal fade @(isModalVisible ? "show d-block" : "")" id="myModal" tabindex="-1" aria-labelledby="modalLabel" aria-hidden="@((!isModalVisible).ToString())" style="@(isModalVisible ? "display: block;" : "display: none;")">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalLabel">@currentTaskTitle</h5>
+                <button type="button" class="btn-close" @onclick="HideModal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="currentTaskHours" class="form-label">Hours</label>
+                    <input type="number" class="form-control" @bind="currentTaskHours" id="currentTaskHours" step="0.25" placeholder="0.00">
+                </div>
+                <div class="mb-3">
+                    <label for="comment" class="form-label">Comment</label>
+                    <textarea id="comment" class="form-control" @bind="currentTaskMessage" rows="5" placeholder="Did something..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CancelUpdate">Close</button>
+                <button class="btn btn-primary" @onclick="UpdateTask">Update Task</button>
+            </div>
+        </div>
+    </div>
+</div>
+@if (isModalVisible)
+{
+    <div class="modal-backdrop fade show"></div>
+}
+
 <h1>Tasks</h1>
-
 <button class="btn btn-primary" @onclick="Refresh">Refresh</button>
-
 <dl>
     <dt>
         Total Hours Completed Today
@@ -18,7 +45,6 @@
         @totalHoursCompletedToday
     </dd>
 </dl>
-
 @if (devOpsTasks == null)
 {
     <p><em>Loading...</em></p>
@@ -42,7 +68,7 @@ else
                     <td>@task.Title</td>
                     <td>@task.State</td>
                     <td>
-                        <input value="@task.Hours" @oninput="@(e => OnHoursChanged(task.ID, e.Value?.ToString()))" />
+                        <input @bind="task.Hours" type="number" class="form-control" @oninput="@(e => OnHoursChanged(task.ID, e.Value?.ToString()))" step="0.25" placeholder="0.00">
                     </td>
                 </tr>
             }
@@ -52,9 +78,15 @@ else
 
 @code {
     private bool isLoading = true;
+    private bool isModalVisible = false;
     private List<Core.DevOps.DevOpsTask> devOpsTasks;
     private double totalHoursCompletedToday;
     private Dictionary<long, CancellationTokenSource> DebounceTokens = new();
+
+    private long currentTaskID;
+    private string currentTaskTitle = string.Empty;
+    private double currentTaskHours;
+    private string currentTaskMessage = string.Empty;
 
     private async Task Refresh()
     {
@@ -92,27 +124,70 @@ else
         try
         {
             // Wait 3 seconds before saving
-            await Task.Delay(5000, tokenSource.Token);
-            isLoading = true;
+            await Task.Delay(3000, tokenSource.Token);
+            currentTaskID = key;
+            currentTaskHours = value;
+            var thisTask = devOpsTasks.First(t => t.ID == key);
+            currentTaskTitle = thisTask.Title;
+            ShowModal();
             StateHasChanged();
-
-            // Save to LiteDB
-            await Core.DevOps.DevOpsProvider.SaveCompletedHours(key, value);
-
-            // Update local state
-            var thisSetting = devOpsTasks.FirstOrDefault(t => t.ID == key);
-            if (thisSetting != null)
-            {
-                thisSetting.Hours = value;
-                totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks);
-            }
-
-            StateHasChanged();
-            isLoading = false;
         }
         catch (TaskCanceledException)
         {
             // Ignore cancellations (new input came in)
         }
+    }
+
+    private void ShowModal()
+    {
+        isModalVisible = true;
+    }
+
+    private void HideModal()
+    {
+        isModalVisible = false;
+    }
+
+    private async Task CancelUpdate()
+    {
+        if (currentTaskID > 0)
+        {
+            currentTaskID = 0;
+            currentTaskTitle = string.Empty;
+            currentTaskHours = 0;
+            currentTaskMessage = string.Empty;
+            await Refresh();
+        }
+        HideModal();
+    }
+
+    private async Task UpdateTask()
+    {
+        if (currentTaskID <= 0)
+        {
+            return;
+        }
+
+        isLoading = true;
+        StateHasChanged();
+
+        await Core.DevOps.DevOpsProvider.SaveCompletedHoursWithComment(currentTaskID, currentTaskHours, currentTaskMessage);
+
+        var thisTask = devOpsTasks.FirstOrDefault(t => t.ID == currentTaskID);
+        if (thisTask != null)
+        {
+            thisTask.Hours = currentTaskHours;
+            // Update local state
+            totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks);
+        }
+
+        await Task.Delay(1000);
+        currentTaskID = 0;
+        currentTaskTitle = string.Empty;
+        currentTaskHours = 0;
+        currentTaskMessage = string.Empty;
+        HideModal();
+        StateHasChanged();
+        isLoading = false;
     }
 }
