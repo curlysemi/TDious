@@ -44,68 +44,114 @@ namespace TDious.Core
 
             var tdTasks = tasks?.Query()?.ToList() ?? new List<TDiousTask>();
             var now = DateTime.Now;
-            if (tasks != null && (!tdTasks.Any() || tdTasks.All(t => t.CacheDateTime.Date != now.Date)))
+
+            var oldCache = new List<TDiousTask>();
+            var cachedToday = new List<TDiousTask>();
+            if (tdTasks.Any())
             {
-                IEnumerable<TDiousTask> getConverted(IEnumerable<DevOpsTask> doTasks)
+                foreach (var tdTask in tdTasks)
+                {
+                    if (tdTask.CacheDateTime.Date == now.Date)
+                    {
+                        cachedToday.Add(tdTask);
+                    }
+                    else
+                    {
+                        oldCache.Add(tdTask);
+                    }
+                }
+            }
+
+            var oldDevOps = new List<DevOpsTask>();
+            var newDevOps = new List<DevOpsTask>();
+            foreach (var doTask in devOpsTasks)
+            {
+                var oldTask = oldCache.FirstOrDefault(o => o.WorkItemID == doTask.ID);
+                bool wasInOld = oldTask != null;
+                var oldCached = cachedToday.FirstOrDefault(o => o.WorkItemID == doTask.ID);
+                bool wasCachedToday = oldCached != null;
+                if (wasInOld || wasCachedToday)
+                {
+                    oldDevOps.Add(doTask);
+                }
+                else if (!wasCachedToday)
+                {
+                    newDevOps.Add(doTask);
+                }
+            }
+
+            if (tasks != null && (!tdTasks.Any() || newDevOps.Any() || oldCache.Any() || cachedToday.Any()))
+            {
+                IEnumerable<TDiousTask> getConverted(IEnumerable<DevOpsTask> doTasks, double? overrideHours = null)
                 {
                     return doTasks.Select(t => new TDiousTask
                     {
                         WorkItemID = t.ID,
-                        Hours = t.Hours,
+                        Hours = overrideHours ?? t.Hours,
                         CacheDateTime = now,
                     });
                 }
-                var old = new List<TDiousTask>();
-                var newish = new List<TDiousTask>();
-                foreach (var tdTask in tdTasks)
-                {
-                    if (tdTask.CacheDateTime == now.Date)
-                    {
-                        newish.Add(tdTask);
-                    }
-                    else
-                    {
-                        old.Add(tdTask);
-                    }
-                }
-                var today = tdTasks.Where(t => t.CacheDateTime == now.Date);
-                if (old.Any() == true)
+
+                if (oldDevOps.Any() == true)
                 {
                     double total = 0;
 
-                    tasks.DeleteMany(t => old.Contains(t));
-                    var newTasks = new List<DevOpsTask>();
-                    foreach (var doTask in devOpsTasks)
+                    //// Delete all the items cached not today (previous days)
+                    //if (oldCache.Any())
+                    //{
+                    //    tasks.DeleteMany(t => oldCache.Contains(t));
+                    //}
+
+                    if (oldDevOps.Any())
                     {
-                        var oldTask = old.FirstOrDefault(o => o.WorkItemID == doTask.ID);
-                        bool wasInOld = oldTask != null;
-                        if (wasInOld)
+                        foreach (var doTask in oldDevOps)
                         {
                             // this _was_ cached at one point, but not today... So, not a _new_ task. Just need to update the cached hours and not count it
-                            oldTask!.Hours = doTask.Hours;
-                            tasks.Update(oldTask);
-                        }
-                        else
-                        {
-                            if (newish.Any())
+                            var oldCachedTask = oldCache.FirstOrDefault(o => o.WorkItemID == doTask.ID);
+                            if (oldCachedTask != null)
                             {
-                                // this wasn't cached before. If it has any hours and there were already items cached before, it should count to the new total
-                                total += doTask.Hours;
+                                oldCachedTask.Hours = doTask.Hours;
+                                oldCachedTask.CacheDateTime = now;
+                                tasks.Update(oldCachedTask);
                             }
-                            // if there was nothing cached today, it's the first time running today, so we shouldn't count it (we're not going to bother loading the last time the work item was modified -- we just assume TDious was running before work started)
-                            newTasks.Add(doTask);
+                            else
+                            {
+                                var cachedTodayTask = cachedToday.FirstOrDefault(o => o.WorkItemID == doTask.ID);
+                                if (cachedTodayTask != null)
+                                {
+                                    if (doTask.Hours > cachedTodayTask.Hours)
+                                    {
+                                        total += (doTask.Hours - cachedTodayTask.Hours);
+                                    }
+                                }
+                            }
                         }
                     }
-                    var converted = getConverted(newTasks);
-                    foreach (var c in converted)
+                    if (newDevOps.Any())
                     {
-                        tasks.Insert(c);
+                        foreach (var doTask in newDevOps)
+                        {
+                            //if (cachedToday.Any())
+                            //{
+                                //// this wasn't cached before. If it has any hours and there were already items cached before, it should count to the new total
+                                total += doTask.Hours;
+                            //}
+                            //// else: if there was nothing cached today, it's the first time running today, so we shouldn't count it (we're not going to bother loading the last time the work item was modified -- we just assume TDious was running before work started)
+                        }
+                        // these are new tasks. Cache as 0 hours so we credit them in later calculations
+                        var converted = getConverted(newDevOps, overrideHours: 0);
+                        foreach (var c in converted)
+                        {
+                            tasks.Insert(c);
+                        }
                     }
                     return total;
                 }
                 else
                 {
                     // first time running ever: cache all the tasks/hours. Doesn't count
+                    tasks.DeleteAll();
+
                     var converted = getConverted(devOpsTasks);
                     foreach (var c in converted)
                     {

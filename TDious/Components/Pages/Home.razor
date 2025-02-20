@@ -1,5 +1,11 @@
 ﻿@page "/"
 
+<div id="loader" class="loader-overlay" style="display: @(isLoading ? "flex" : "none");">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+
 <h1>Tasks</h1>
 
 <button class="btn btn-primary" @onclick="Refresh">Refresh</button>
@@ -45,14 +51,17 @@ else
 }
 
 @code {
+    private bool isLoading = true;
     private List<Core.DevOps.DevOpsTask> devOpsTasks;
     private double totalHoursCompletedToday;
     private Dictionary<long, CancellationTokenSource> DebounceTokens = new();
 
     private async Task Refresh()
     {
+        isLoading = true;
         devOpsTasks = await Core.DevOps.DevOpsProvider.GetAllTasks();
         totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks);
+        isLoading = false;
     }
 
     protected override async Task OnInitializedAsync()
@@ -84,6 +93,8 @@ else
         {
             // Wait 3 seconds before saving
             await Task.Delay(5000, tokenSource.Token);
+            isLoading = true;
+            StateHasChanged();
 
             // Save to LiteDB
             await Core.DevOps.DevOpsProvider.SaveCompletedHours(key, value);
@@ -97,6 +108,7 @@ else
             }
 
             StateHasChanged();
+            isLoading = false;
         }
         catch (TaskCanceledException)
         {
