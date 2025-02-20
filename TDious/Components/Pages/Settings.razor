@@ -1,0 +1,57 @@
+@page "/settings"
+
+<h1>Settings</h1>
+
+@if (settings == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Setting</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    DevOps Endpoint
+                </td>
+                <td>
+                    <input @bind="settings.DevOpsUri" placeholder="https://yourendpoint" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    DevOps Personal Access Token
+                </td>
+                <td>
+                    <input @bind="settings.DevOpsApiToken" placeholder="yourtoken" />
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <button class="btn btn-primary" @onclick="SaveSettings">Save</button>
+}
+
+@code {
+    private Core.TDiousSettings? settings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = Core.TDiousDataProvider.GetSettings();
+        if (settings == null)
+        {
+            settings = new Core.TDiousSettings();
+        }
+    }
+
+    private void SaveSettings()
+    {
+        Core.TDiousDataProvider.SaveSettings(settings);
+    }
+}

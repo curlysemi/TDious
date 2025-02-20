@@ -1,0 +1,106 @@
+﻿@page "/"
+
+<h1>Tasks</h1>
+
+<button class="btn btn-primary" @onclick="Refresh">Refresh</button>
+
+<dl>
+    <dt>
+        Total Hours Completed Today
+    </dt>
+    <dd>
+        @totalHoursCompletedToday
+    </dd>
+</dl>
+
+@if (devOpsTasks == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Title</th>
+                <th>State</th>
+                <th>Hours</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var task in devOpsTasks)
+            {
+                <tr>
+                    <td>@task.ID</td>
+                    <td>@task.Title</td>
+                    <td>@task.State</td>
+                    <td>
+                        <input value="@task.Hours" @oninput="@(e => OnHoursChanged(task.ID, e.Value?.ToString()))" />
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Core.DevOps.DevOpsTask> devOpsTasks;
+    private double totalHoursCompletedToday;
+    private Dictionary<long, CancellationTokenSource> DebounceTokens = new();
+
+    private async Task Refresh()
+    {
+        devOpsTasks = await Core.DevOps.DevOpsProvider.GetAllTasks();
+        totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Refresh();
+    }
+
+    private async Task OnHoursChanged(long key, string? newValue)
+    {
+        if (newValue is null) return;
+
+        if (!double.TryParse(newValue, out double value))
+        {
+            return;
+        }
+
+        // Cancel any existing debounce for this key
+        if (DebounceTokens.TryGetValue(key, out var existingToken))
+        {
+            existingToken.Cancel();
+            existingToken.Dispose();
+        }
+
+        // Create a new debounce token
+        var tokenSource = new CancellationTokenSource();
+        DebounceTokens[key] = tokenSource;
+
+        try
+        {
+            // Wait 3 seconds before saving
+            await Task.Delay(5000, tokenSource.Token);
+
+            // Save to LiteDB
+            await Core.DevOps.DevOpsProvider.SaveCompletedHours(key, value);
+
+            // Update local state
+            var thisSetting = devOpsTasks.FirstOrDefault(t => t.ID == key);
+            if (thisSetting != null)
+            {
+                thisSetting.Hours = value;
+                totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks);
+            }
+
+            StateHasChanged();
+        }
+        catch (TaskCanceledException)
+        {
+            // Ignore cancellations (new input came in)
+        }
+    }
+}
