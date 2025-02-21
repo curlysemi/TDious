@@ -24,17 +24,20 @@ namespace TDious.Core.DevOps
 
             try
             {
+                string q = settings.CustomWiql ??
+                    "Select [State], [Title], [Completed Work] " +
+                    "From WorkItems " +
+                    "Where [Created By] = @Me " +
+                    "And ( [Work Item Type] = 'Task' ) " +
+                    //"And ( [Work Item Type] = 'Bug' Or [Work Item Type] = 'Work Request' ) " +
+                    //"And [System.TeamProject] = '" + project + "' " +
+                    "And [System.State] <> 'Closed' " +
+                    "Order By [State] Desc, [Changed Date] Asc";
+
                 //create a wiql object and build our query
                 Wiql wiql = new Wiql()
                 {
-                    Query = "Select [State], [Title], [Completed Work] " +
-                            "From WorkItems " +
-                            "Where [Assigned to] = @Me " +
-                            "And ( [Work Item Type] = 'Task' ) " +
-                            //"And ( [Work Item Type] = 'Bug' Or [Work Item Type] = 'Work Request' ) " +
-                            //"And [System.TeamProject] = '" + project + "' " +
-                            "And [System.State] <> 'Closed' "
-                             + "Order By [State] Desc, [Changed Date] Asc"
+                    Query = q
                 };
 
                 using var connection = GetConnection(settings);

@@ -21,7 +21,7 @@ else
                     DevOps Endpoint
                 </td>
                 <td>
-                    <input @bind="settings.DevOpsUri" placeholder="https://dev.azure.com/YourOrg/" />
+                    <input class="form-control" @bind="settings.DevOpsUri" placeholder="https://dev.azure.com/YourOrg/" />
                 </td>
             </tr>
             <tr>
@@ -29,7 +29,15 @@ else
                     DevOps Personal Access Token
                 </td>
                 <td>
-                    <input @bind="settings.DevOpsApiToken" placeholder="yourPAT" />
+                    <input class="form-control" @bind="settings.DevOpsApiToken" placeholder="yourPAT" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Custom Wiql (optional)
+                </td>
+                <td>
+                    <textarea class="form-control" @bind="settings.CustomWiql" placeholder="Custom Wiql query (can be exported from DevOps)" />
                 </td>
             </tr>
         </tbody>
