@@ -15,7 +15,7 @@
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label for="currentTaskHours" class="form-label">Hours</label>
+                    <label for="currentTaskHours" class="form-label">Total Hours</label>
                     <input type="number" class="form-control" @bind="currentTaskHours" id="currentTaskHours" step="0.25" placeholder="0.00">
                 </div>
                 <div class="mb-3">
@@ -35,16 +35,24 @@
     <div class="modal-backdrop fade show"></div>
 }
 
-<h1>Tasks</h1>
-<button class="btn btn-primary" @onclick="Refresh">Refresh</button>
-<dl>
-    <dt>
-        Total Hours Completed Today
-    </dt>
-    <dd>
-        @totalHoursCompletedToday
-    </dd>
-</dl>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3">Tasks</h1>
+        <button class="btn btn-primary" @onclick="Refresh">
+            <i class="bi bi-arrow-clockwise"></i> Refresh
+        </button>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="d-flex gap-2 align-items-center">
+                <h5 class="mb-0">Total Hours Completed Today:</h5>
+                <span class="fs-4 fw-bold text-primary">@totalHoursCompletedToday.ToString("0.##")</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 @if (devOpsTasks == null)
 {
     <p><em>Loading...</em></p>
@@ -57,7 +65,8 @@ else
                 <th>ID</th>
                 <th>Title</th>
                 <th>State</th>
-                <th>Hours</th>
+                <th>Total</th>
+                <th>Add</th>
             </tr>
         </thead>
         <tbody>
@@ -68,7 +77,10 @@ else
                     <td>@task.Title</td>
                     <td>@task.State</td>
                     <td>
-                        <input @bind="task.Hours" type="number" class="form-control" @oninput="@(e => OnHoursChanged(task.ID, e.Value?.ToString()))" step="0.25" placeholder="0.00">
+                        <input @bind="task.TotalHours" type="number" class="form-control" @oninput="@(e => OnHoursChanged(task.ID, e.Value?.ToString(), isAdd: true))" step="0.25" placeholder="0.00">
+                    </td>
+                    <td>
+                        <input @bind="task.AddHours" type="number" class="form-control" @oninput="@(e => OnHoursChanged(task.ID, e.Value?.ToString(), isAdd: true))" step="0.25" placeholder="0.00">
                     </td>
                 </tr>
             }
@@ -101,7 +113,7 @@ else
         await Refresh();
     }
 
-    private async Task OnHoursChanged(long key, string? newValue)
+    private async Task OnHoursChanged(long key, string? newValue, bool isAdd)
     {
         if (newValue is null) return;
 
@@ -128,6 +140,10 @@ else
             currentTaskID = key;
             currentTaskHours = value;
             var thisTask = devOpsTasks.First(t => t.ID == key);
+            if (isAdd)
+            {
+                currentTaskHours = thisTask.TotalHours + value;
+            }
             currentTaskTitle = thisTask.Title;
             ShowModal();
             StateHasChanged();
@@ -176,12 +192,11 @@ else
         var thisTask = devOpsTasks.FirstOrDefault(t => t.ID == currentTaskID);
         if (thisTask != null)
         {
-            thisTask.Hours = currentTaskHours;
+            thisTask.TotalHours = currentTaskHours;
             // Update local state
             totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks);
         }
 
-        await Task.Delay(1000);
         currentTaskID = 0;
         currentTaskTitle = string.Empty;
         currentTaskHours = 0;

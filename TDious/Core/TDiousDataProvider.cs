@@ -92,7 +92,7 @@ namespace TDious.Core
                     return doTasks.Select(t => new TDiousTask
                     {
                         WorkItemID = t.ID,
-                        Hours = overrideHours ?? t.Hours,
+                        Hours = overrideHours ?? t.TotalHours,
                         CacheDateTime = now,
                     });
                 }
@@ -115,7 +115,7 @@ namespace TDious.Core
                             var oldCachedTask = oldCache.FirstOrDefault(o => o.WorkItemID == doTask.ID);
                             if (oldCachedTask != null)
                             {
-                                oldCachedTask.Hours = doTask.Hours;
+                                oldCachedTask.Hours = doTask.TotalHours;
                                 oldCachedTask.CacheDateTime = now;
                                 tasks.Update(oldCachedTask);
                             }
@@ -124,9 +124,9 @@ namespace TDious.Core
                                 var cachedTodayTask = cachedToday.FirstOrDefault(o => o.WorkItemID == doTask.ID);
                                 if (cachedTodayTask != null)
                                 {
-                                    if (doTask.Hours > cachedTodayTask.Hours)
+                                    if (doTask.TotalHours > cachedTodayTask.Hours)
                                     {
-                                        total += (doTask.Hours - cachedTodayTask.Hours);
+                                        total += (doTask.TotalHours - cachedTodayTask.Hours);
                                     }
                                 }
                             }
@@ -139,7 +139,7 @@ namespace TDious.Core
                             //if (cachedToday.Any())
                             //{
                                 //// this wasn't cached before. If it has any hours and there were already items cached before, it should count to the new total
-                                total += doTask.Hours;
+                                total += doTask.TotalHours;
                             //}
                             //// else: if there was nothing cached today, it's the first time running today, so we shouldn't count it (we're not going to bother loading the last time the work item was modified -- we just assume TDious was running before work started)
                         }
@@ -173,9 +173,9 @@ namespace TDious.Core
                     var devOpsTask = devOpsTasks.FirstOrDefault(t => t.ID == tdTask.WorkItemID);
                     if (devOpsTask != null)
                     {
-                        if (devOpsTask.Hours > tdTask.Hours)
+                        if (devOpsTask.TotalHours > tdTask.Hours)
                         {
-                            total += (devOpsTask.Hours - tdTask.Hours);
+                            total += (devOpsTask.TotalHours - tdTask.Hours);
                         }
                     }
                 }

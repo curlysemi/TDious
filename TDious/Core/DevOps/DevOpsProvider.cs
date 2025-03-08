@@ -17,7 +17,7 @@ namespace TDious.Core.DevOps
         public static async Task<List<DevOpsTask>> GetAllTasks()
         {
             var settings = await TDiousDataProvider.GetSettings();
-            if (settings is null)
+            if (settings is null || settings.DevOpsUri is null || settings.DevOpsApiToken is null)
             {
                 return new List<DevOpsTask>();
             }
@@ -29,8 +29,6 @@ namespace TDious.Core.DevOps
                     "From WorkItems " +
                     "Where [Created By] = @Me " +
                     "And ( [Work Item Type] = 'Task' ) " +
-                    //"And ( [Work Item Type] = 'Bug' Or [Work Item Type] = 'Work Request' ) " +
-                    //"And [System.TeamProject] = '" + project + "' " +
                     "And [System.State] <> 'Closed' " +
                     "Order By [State] Desc, [Changed Date] Asc";
 
@@ -66,10 +64,6 @@ namespace TDious.Core.DevOps
                     //get work items for the id's found in query
                     var workItems = witClient.GetWorkItemsAsync(arr, fields, workItemQueryResult.AsOf).Result;
 
-                    //if (currentTopicIdToExclude != null)
-                    //{
-                    //    workItems = workItems.Where(w => w.Fields["System.Id"].ToString() != currentTopicIdToExclude).ToList();
-                    //}
                     var info = workItems.Select(w =>
                     {
                         double completedWork = 0;
@@ -82,7 +76,7 @@ namespace TDious.Core.DevOps
                             ID = (Int64)w.Fields["System.Id"],
                             Title = w.Fields["System.Title"].ToString(),
                             State = w.Fields["System.State"].ToString(),
-                            Hours = completedWork,
+                            TotalHours = completedWork,
                         };
                         return topic;
                     });
@@ -91,9 +85,7 @@ namespace TDious.Core.DevOps
                 }
 
             }
-            catch (Exception ex)
-            {
-            }
+            catch { } // TODO: Error handling (send messages to UI)
 
             return new List<DevOpsTask>();
         }
@@ -101,7 +93,7 @@ namespace TDious.Core.DevOps
         public static async Task SaveCompletedHoursWithComment(long taskID, double newHours, string comment)
         {
             var settings = await TDiousDataProvider.GetSettings();
-            if (settings is null)
+            if (settings is null || settings.DevOpsUri is null || settings.DevOpsApiToken is null)
             {
                 return;
             }
@@ -146,7 +138,7 @@ namespace TDious.Core.DevOps
 
         private static VssConnection GetConnection(TDiousSettings settings)
         {
-            var uri = new Uri(settings.DevOpsUri);
+            var uri = new Uri(settings.DevOpsUri!);
             var credentials = new VssOAuthAccessTokenCredential(settings.DevOpsApiToken);
             return new VssConnection(uri, credentials);
         }
