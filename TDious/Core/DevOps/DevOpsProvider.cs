@@ -16,8 +16,8 @@ namespace TDious.Core.DevOps
     {
         public static async Task<List<DevOpsTask>> GetAllTasks()
         {
-            var settings = TDiousDataProvider.GetSettings();
-            if (settings == null)
+            var settings = await TDiousDataProvider.GetSettings();
+            if (settings is null)
             {
                 return new List<DevOpsTask>();
             }
@@ -100,8 +100,8 @@ namespace TDious.Core.DevOps
 
         public static async Task SaveCompletedHoursWithComment(long taskID, double newHours, string comment)
         {
-            var settings = TDiousDataProvider.GetSettings();
-            if (settings == null)
+            var settings = await TDiousDataProvider.GetSettings();
+            if (settings is null)
             {
                 return;
             }

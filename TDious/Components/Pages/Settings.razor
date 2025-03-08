@@ -1,5 +1,13 @@
 @page "/settings"
 
+
+<div id="loader" class="loader-overlay" style="display: @(isLoading ? "flex" : "none");">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+
+
 <h1>Settings</h1>
 
 @if (settings == null)
@@ -47,19 +55,26 @@ else
 }
 
 @code {
+    private bool isLoading = true;
+
     private Core.TDiousSettings? settings;
 
     protected override async Task OnInitializedAsync()
     {
-        settings = Core.TDiousDataProvider.GetSettings();
+        settings = await Core.TDiousDataProvider.GetSettings();
         if (settings == null)
         {
             settings = new Core.TDiousSettings();
         }
+        isLoading = false;
     }
 
-    private void SaveSettings()
+    private async Task SaveSettings()
     {
-        Core.TDiousDataProvider.SaveSettings(settings);
+        isLoading = true;
+        StateHasChanged();
+        await Core.TDiousDataProvider.SaveSettings(settings);
+        isLoading = false;
+        StateHasChanged();
     }
 }

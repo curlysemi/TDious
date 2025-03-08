@@ -11,12 +11,17 @@ namespace TDious.Core
 {
     static class TDiousDataProvider
     {
-        public static void SaveSettings(TDiousSettings settings)
+        public static async Task SaveSettings(TDiousSettings? settings)
         {
-            using var db = new LiteDatabase(GetFilePath());
+            if (settings is null)
+            {
+                return;
+            }
+
+            using var db = new LiteDatabase(await GetConnectionString());
             var settingss = db.GetCollection<TDiousSettings>("settings");
 
-            var existingSettings = GetSettings();
+            var existingSettings = await GetSettings();
             if (existingSettings == null)
             {
                 settingss.Insert(settings);
@@ -28,16 +33,16 @@ namespace TDious.Core
             }
         }
 
-        public static TDiousSettings? GetSettings()
+        public static async Task<TDiousSettings?> GetSettings()
         {
-            using var db = new LiteDatabase(GetFilePath());
+            using var db = new LiteDatabase(await GetConnectionString());
             var settingss = db.GetCollection<TDiousSettings>("settings");
             return settingss?.Query()?.FirstOrDefault();
         }
 
         public static async Task<double> GetHoursCompletedToday(List<DevOpsTask> devOpsTasks)
         {
-            using var db = new LiteDatabase(GetFilePath());
+            using var db = new LiteDatabase(await GetConnectionString());
             var tasks = db.GetCollection<TDiousTask>("tasks");
 
             devOpsTasks = devOpsTasks ?? await DevOpsProvider.GetAllTasks();
@@ -178,11 +183,20 @@ namespace TDious.Core
             }
         }
 
-        private static string GetFilePath()
+        private const string PASS_KEY_NAME = "tdious_password";
+        private static async Task<string> GetConnectionString()
         {
             var path = FileSystem.Current.AppDataDirectory;
             var filePath = Path.Combine(path, "tdious_settings.db");
-            return $"Filename={filePath}; Connection=shared";
+
+            string? password = await SecureStorage.Default.GetAsync(PASS_KEY_NAME);
+            if (password is null)
+            {
+                password = Guid.NewGuid().ToString();
+                await SecureStorage.Default.SetAsync(PASS_KEY_NAME, password);
+            }
+
+            return $"Filename={filePath};Password={password};Connection=shared";
         }
     }
 }
