@@ -37,5 +37,4 @@ At the time of writing:
 * Use last modified from DevOps for calculating the total hours completed instead of relying on local cache
 * Replace all that janky code
 * Make UI fancier (it's just the default .NET Maui Blazor Hybrid app template)
-* Secure storage of the PAT token (we're using LiteDB)
 * Displaying errors to the user
