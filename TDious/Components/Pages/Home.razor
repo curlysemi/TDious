@@ -44,6 +44,9 @@
         <button class="btn btn-primary" @onclick="Refresh">
             <i class="bi bi-arrow-clockwise"></i> Refresh
         </button>
+        <button class="btn btn-secondary" @onclick="ResetCache">
+            <i class="bi bi-arrow-clockwise"></i> Reset Cache
+        </button>
     </div>
 
     <div class="card shadow-sm">
@@ -80,7 +83,7 @@ else
                     <td>@task.Title</td>
                     <td>@task.State</td>
                     <td>
-                        <input @bind="task.TotalHours" type="number" min="0" class="form-control" @oninput="@(e => OnHoursChanged(task.ID, e.Value?.ToString(), isAdd: true))" step="0.25" placeholder="0.00">
+                        <input @bind="task.TotalHours" type="number" min="0" class="form-control" @oninput="@(e => OnHoursChanged(task.ID, e.Value?.ToString(), isAdd: false))" step="0.25" placeholder="0.00">
                     </td>
                     <td>
                         <input @bind="task.AddHours" type="number" min="0" class="form-control" @oninput="@(e => OnHoursChanged(task.ID, e.Value?.ToString(), isAdd: true))" step="0.25" placeholder="0.00">
@@ -109,6 +112,14 @@ else
         isLoading = true;
         devOpsTasks = await Core.DevOps.DevOpsProvider.GetAllTasks();
         totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks);
+        isLoading = false;
+    }
+
+    private async Task ResetCache()
+    {
+        isLoading = true;
+        devOpsTasks = await Core.DevOps.DevOpsProvider.GetAllTasks();
+        totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks, resetCache: true);
         isLoading = false;
     }
 

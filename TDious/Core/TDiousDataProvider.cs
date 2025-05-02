@@ -40,7 +40,7 @@ namespace TDious.Core
             return settingss?.Query()?.FirstOrDefault();
         }
 
-        public static async Task<double> GetHoursCompletedToday(List<DevOpsTask> devOpsTasks)
+        public static async Task<double> GetHoursCompletedToday(List<DevOpsTask> devOpsTasks, bool resetCache = false)
         {
             using var db = new LiteDatabase(await GetConnectionString());
             var tasks = db.GetCollection<TDiousTask>("tasks");
@@ -56,7 +56,7 @@ namespace TDious.Core
             {
                 foreach (var tdTask in tdTasks)
                 {
-                    if (tdTask.CacheDateTime.Date == now.Date)
+                    if (tdTask.CacheDateTime.Date == now.Date && !resetCache)
                     {
                         cachedToday.Add(tdTask);
                     }
