@@ -1,4 +1,5 @@
 ﻿@page "/"
+@implements IDisposable
 
 <div id="loader" class="loader-overlay" style="display: @(isLoading ? "flex" : "none");">
     <div class="spinner-border text-primary" role="status">
@@ -38,15 +39,17 @@
     <div class="modal-backdrop fade show"></div>
 }
 
-<div class="container mt-4">
+<div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h3">Tasks</h1>
-        <button class="btn btn-primary" @onclick="Refresh">
-            <i class="bi bi-arrow-clockwise"></i> Refresh
-        </button>
-        <button class="btn btn-secondary" @onclick="ResetCache">
-            <i class="bi bi-arrow-clockwise"></i> Reset Cache
-        </button>
+        <h1 class="h3 mb-0">Tasks</h1>
+        <div class="d-flex">
+            <button class="btn btn-primary" @onclick="Refresh">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+            <button class="btn btn-secondary ms-2" @onclick="ResetCache">
+                <i class="bi bi-arrow-clockwise"></i> Reset Cache
+            </button>
+        </div>
     </div>
 
     <div class="card shadow-sm">
@@ -95,6 +98,8 @@ else
 }
 
 @code {
+    [Inject] private TDious.Services.LifecycleService LifecycleService { get; set; } = default!;
+
     private bool enableComments = false;
 
     private bool isLoading = true;
@@ -127,6 +132,8 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        LifecycleService.OnResume += HandleAppResumeAsync;
+
         var settings = await Core.TDiousDataProvider.GetSettings();
         if (settings != null)
         {
@@ -254,5 +261,16 @@ else
         HideModal();
         StateHasChanged();
         isLoading = false;
+    }
+
+    private async Task HandleAppResumeAsync()
+    {
+        await Refresh();
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        LifecycleService.OnResume -= HandleAppResumeAsync;
     }
 }
