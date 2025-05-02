@@ -1,8 +1,7 @@
 # TDious
 
-Edit multiple DevOps tasks at once, save comments in Task Description, and see total hours completed for the day.
+Edit multiple DevOps tasks at once, optionally save comments in Task Description, and see total hours completed for the day.
 
-Currently, this application assumes that it was refreshed at the beginning of a work-day.
 The task-hours inputs are debounced by 3 seconds, meaning you have 3 seconds to finish updating the hours of a given task before a modal is launched.
 
 ## Installation
