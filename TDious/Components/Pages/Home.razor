@@ -95,9 +95,11 @@ else
 }
 
 @code {
+    private bool enableComments = false;
+
     private bool isLoading = true;
     private bool isModalVisible = false;
-    private List<Core.DevOps.DevOpsTask> devOpsTasks;
+    private List<Core.DevOps.DevOpsTask> devOpsTasks = new();
     private double totalHoursCompletedToday;
     private Dictionary<long, CancellationTokenSource> DebounceTokens = new();
 
@@ -118,13 +120,18 @@ else
     private async Task ResetCache()
     {
         isLoading = true;
-        devOpsTasks = await Core.DevOps.DevOpsProvider.GetAllTasks();
+        devOpsTasks = await Core.DevOps.DevOpsProvider.GetAllTasks() ?? new List<Core.DevOps.DevOpsTask>();
         totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks, resetCache: true);
         isLoading = false;
     }
 
     protected override async Task OnInitializedAsync()
     {
+        var settings = await Core.TDiousDataProvider.GetSettings();
+        if (settings != null)
+        {
+            enableComments = settings.EnableComments;
+        }
         await Refresh();
     }
 
@@ -164,9 +171,16 @@ else
             {
                 currentTask_newTotalHoursCompletedToday = totalHoursCompletedToday + (value - thisTask.TotalHours);
             }
-            currentTaskTitle = thisTask.Title;
-            ShowModal();
-            StateHasChanged();
+            currentTaskTitle = thisTask.Title ?? "(No title)";
+            if (enableComments)
+            {
+                ShowModal();
+                StateHasChanged();
+            }
+            else
+            {
+                await UpdateTask();
+            }
         }
         catch (TaskCanceledException)
         {

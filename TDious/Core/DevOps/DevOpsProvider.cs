@@ -122,15 +122,19 @@ namespace TDious.Core.DevOps
                     Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Replace,
                     Path = "/fields/Microsoft.VSTS.Scheduling.CompletedWork",
                     Value = newHours
-                },
+                }
+            ];
+
+            if (settings.EnableComments)
+            {
                 // Append another line to the Task description
-                new JsonPatchOperation
+                patchDocument.Add(new JsonPatchOperation
                 {
                     Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Replace,
                     Path = "/fields/Microsoft.VSTS.Common.ItemDescription",
                     Value = updatedDescription
-                },
-            ];
+                });
+            }
 
             // Update the work item
             var updatedWorkItem = await witClient.UpdateWorkItemAsync(patchDocument, id);

@@ -9,5 +9,6 @@ namespace TDious.Core
         public string? DevOpsApiToken { get; set; }
         public string? DevOpsUri { get; set; }
         public string? CustomWiql { get; set; }
+        public bool EnableComments { get; set; }
     }
 }
