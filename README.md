@@ -5,7 +5,7 @@ Edit multiple DevOps tasks at once, optionally save comments in Task Description
 The task-hours inputs are debounced by 3 seconds, meaning you have 3 seconds to finish updating the hours of a given task before a modal is launched.
 
 ## Installation
-* Double-click the TDious_0.0.1.0_x64.cer file
+* Double-click the TDious_0.0.7.0_x64.cer file
 * Click the Install Certificate... button
 * Store Location -> Local Machine
 * Select the Place all certificates in the following store
