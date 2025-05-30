@@ -6,7 +6,7 @@
     * Includes option to set 'CurrentEstimate'
 
 ## Installation
-* Double-click the TDious_0.0.1.0_x64.cer file
+* Double-click the TDious_0.0.7.0_x64.cer file
 * Click the Install Certificate... button
 * Store Location -> Local Machine
 * Select the Place all certificates in the following store
