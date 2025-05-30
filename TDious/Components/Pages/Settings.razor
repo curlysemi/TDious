@@ -34,6 +34,22 @@ else
             </tr>
             <tr>
                 <td>
+                    DevOps Project Name
+                </td>
+                <td>
+                    <input class="form-control" @bind="settings.DevOpsProject" placeholder="YourProjectName" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    DevOps Email
+                </td>
+                <td>
+                    <input class="form-control" @bind="settings.DevOpsEmail" placeholder="your_name@example.com" />
+                </td>
+            </tr>
+            <tr>
+                <td>
                     DevOps Personal Access Token
                 </td>
                 <td>
@@ -42,10 +58,30 @@ else
             </tr>
             <tr>
                 <td>
-                    Custom Wiql (optional)
+                    Custom Home Wiql (optional)
                 </td>
                 <td>
-                    <textarea class="form-control" @bind="settings.CustomWiql" placeholder="Custom Wiql query (can be exported from DevOps)" />
+                    <textarea class="form-control" @bind="settings.CustomHomeWiql" placeholder="Custom Wiql query (can be exported from DevOps)" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Items to Create List Wiql
+                </td>
+                <td>
+                    <textarea class="form-control" @bind="settings.CustomChildItemsToCreateWiql" placeholder="Custom Wiql query (can be exported from DevOps)" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Child Work Item Type
+                </td>
+                <td>
+                    <select class="form-select" @bind="settings.CreateChildWorkItemType">
+                        <option value="Task">Task</option>
+                        <option value="Test Task">Test Task</option>
+                        <option value="Test Case">Test Case</option>
+                    </select>
                 </td>
             </tr>
             <tr>

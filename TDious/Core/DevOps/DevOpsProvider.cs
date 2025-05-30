@@ -1,14 +1,8 @@
 ﻿using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using Microsoft.VisualStudio.Services.OAuth;
-using Microsoft.VisualStudio.Services.TestManagement.TestPlanning.WebApi;
 using Microsoft.VisualStudio.Services.WebApi;
 using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace TDious.Core.DevOps
 {
@@ -19,12 +13,12 @@ namespace TDious.Core.DevOps
             var settings = await TDiousDataProvider.GetSettings();
             if (settings is null || settings.DevOpsUri is null || settings.DevOpsApiToken is null)
             {
-                return new List<DevOpsTask>();
+                return [];
             }
 
             try
             {
-                string q = settings.CustomWiql ??
+                string q = settings.CustomHomeWiql ??
                     "Select [State], [Title], [Completed Work] " +
                     "From WorkItems " +
                     "Where [Created By] = @Me " +
@@ -87,7 +81,64 @@ namespace TDious.Core.DevOps
             }
             catch { } // TODO: Error handling (send messages to UI)
 
-            return new List<DevOpsTask>();
+            return [];
+        }
+
+        public static async Task<List<DevOpsTask>> GetParentWorkItems()
+        {
+            var settings = await TDiousDataProvider.GetSettings();
+            if (settings is null || string.IsNullOrWhiteSpace(settings.CustomChildItemsToCreateWiql) ||
+                string.IsNullOrWhiteSpace(settings.DevOpsUri) || string.IsNullOrWhiteSpace(settings.DevOpsApiToken))
+            {
+                return [];
+            }
+
+            try
+            {
+                using var connection = GetConnection(settings);
+                using var witClient = connection.GetClient<WorkItemTrackingHttpClient>();
+
+                var wiql = new Wiql { Query = settings.CustomChildItemsToCreateWiql };
+                var workItemQueryResult = await witClient.QueryByWiqlAsync(wiql);
+
+                if (workItemQueryResult.WorkItems.Count() == 0)
+                {
+                    return [];
+                }
+
+                var ids = workItemQueryResult.WorkItems.Select(w => w.Id).ToArray();
+
+                var fields = new[]
+                {
+                    "System.Id",
+                    "System.Title",
+                    "System.State",
+                    "Microsoft.VSTS.Scheduling.Effort"
+                };
+
+                var workItems = await witClient.GetWorkItemsAsync(ids, fields, workItemQueryResult.AsOf);
+
+                return workItems.Select(w =>
+                {
+                    int effort = 0;
+                    if (w.Fields.TryGetValue("Microsoft.VSTS.Scheduling.Effort", out var e))
+                    {
+                        effort = Convert.ToInt32(e);
+                    }
+
+                    return new DevOpsTask
+                    {
+                        ID = Convert.ToInt64(w.Fields["System.Id"]),
+                        Title = w.Fields["System.Title"]?.ToString() ?? "(No Title)",
+                        State = w.Fields["System.State"]?.ToString() ?? "Unknown",
+                        Effort = effort
+                    };
+                }).OrderBy(w => w.State).ToList();
+            }
+            catch
+            {
+                return [];
+            }
         }
 
         public static async Task SaveCompletedHoursWithComment(long taskID, double newHours, string comment)
@@ -179,6 +230,93 @@ namespace TDious.Core.DevOps
 
             // If the hours are a non-integer (like 1.5 or 2.5)
             return $"{hours} hrs";
+        }
+
+        public static async Task CreateChildTask(long parentId, double estimatedHours)
+{
+            var settings = await TDiousDataProvider.GetSettings();
+            if (settings is null || settings.DevOpsUri is null || settings.DevOpsApiToken is null || settings.DevOpsProject is null || settings.DevOpsEmail is null)
+            {
+                return;
+            }
+
+            using var connection = GetConnection(settings);
+            using var witClient = connection.GetClient<WorkItemTrackingHttpClient>();
+
+            var parent = await witClient.GetWorkItemAsync((int)parentId, expand: WorkItemExpand.All);
+            if (parent is null)
+            {
+                return;
+            }
+
+            string? parentTitle = parent.Fields["System.Title"].ToString();
+            string? parentDesc = parent.Fields?.ContainsKey("System.Description") == true ? parent.Fields["System.Description"].ToString() : "";
+            string? parentArea = parent.Fields["System.AreaPath"].ToString();
+            string? parentIteration = parent.Fields["System.IterationPath"].ToString();
+            if (parentDesc is null || parentDesc is null || parentArea is null || parentIteration is null)
+            {
+                return;
+            }
+
+            var patch = new JsonPatchDocument
+            {
+                new JsonPatchOperation
+                {
+                    Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Add,
+                    Path = "/fields/System.Title",
+                    Value = parentTitle
+                },
+                new JsonPatchOperation
+                {
+                    Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Add,
+                    Path = "/fields/System.AreaPath",
+                    Value = parentArea
+                },
+                new JsonPatchOperation
+                {
+                    Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Add,
+                    Path = "/fields/System.IterationPath",
+                    Value = parentIteration
+                },
+                new JsonPatchOperation
+                {
+                    Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Add,
+                    Path = "/fields/System.Description",
+                    Value = parentDesc
+                },
+                new JsonPatchOperation
+                {
+                    Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Add,
+                    Path = "/fields/Microsoft.VSTS.Common.ItemDescription",
+                    Value = parentDesc
+                },
+                new JsonPatchOperation
+                {
+                    Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Add,
+                    Path = "/fields/System.AssignedTo",
+                    Value = settings.DevOpsEmail
+                },
+                new JsonPatchOperation
+                {
+                    Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Add,
+                    Path = "/fields/Microsoft.VSTS.Scheduling.CurrentEstimate",
+                    Value = estimatedHours
+                },
+                new JsonPatchOperation
+                {
+                    Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Add,
+                    Path = "/relations/-",
+                    Value = new
+                    {
+                        rel = "System.LinkTypes.Hierarchy-Reverse",
+                        url = parent.Url
+                    }
+                }
+            };
+
+            string childType = settings.CreateChildWorkItemType ?? "Task";
+
+            await witClient.CreateWorkItemAsync(patch, project: settings.DevOpsProject, type: childType);
         }
     }
 }

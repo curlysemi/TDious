@@ -1,8 +1,9 @@
 # TDious
 
-Edit multiple DevOps tasks at once, optionally save comments in Task Description, and see total hours completed for the day.
-
-The task-hours inputs are debounced by 3 seconds, meaning you have 3 seconds to finish updating the hours of a given task before a modal is launched.
+* Edit multiple DevOps tasks at once, optionally save comments in Task Description, and see total hours completed for the day.
+    * The task-hours inputs are debounced by 3 seconds, meaning you have 3 seconds to finish updating the hours of a given task before a modal is launched (if comments are enabled—otherwise, it'll automatically be saved).
+* Create child tasks (copies title, description, area path, iteration path for a new child task)
+    * Includes option to set 'CurrentEstimate'
 
 ## Installation
 * Double-click the TDious_0.0.1.0_x64.cer file
@@ -17,9 +18,11 @@ The task-hours inputs are debounced by 3 seconds, meaning you have 3 seconds to 
 
 ## Setup
 
-Navigate to the settings tab.
-Enter your organization's DevOps URL for the 'DevOps Endpoint' setting.
-Enter your personal access token for the 'DevOps Personal Access Token' setting.
+* Navigate to the settings tab.
+* Enter your organization's DevOps URL for the 'DevOps Endpoint' setting.
+* Enter your personal access token for the 'DevOps Personal Access Token' setting.
+* For 'DevOps Email', enter the email that your DevOps account is associated to.
+* If you want to use the 'Create Tasks' feature, you'll need to add a 'Items to Create List Wiql'
 
 ### Generating a DevOps Personal Access Token
 At the time of writing:
