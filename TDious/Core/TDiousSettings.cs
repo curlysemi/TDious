@@ -13,6 +13,7 @@ namespace TDious.Core
         public string? CustomHomeWiql { get; set; }
         public string? CustomChildItemsToCreateWiql { get; set; }
         public string? CreateChildWorkItemType { get; set; }
+        public string? TrackingTitle { get; set; }
         public bool EnableComments { get; set; }
     }
 }

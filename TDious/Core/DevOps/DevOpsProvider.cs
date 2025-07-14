@@ -8,12 +8,12 @@ namespace TDious.Core.DevOps
 {
     class DevOpsProvider
     {
-        public static async Task<List<DevOpsTask>> GetAllTasks()
+        public static async Task<(List<DevOpsTask> allTasks, DevOpsTask? timeTrackingTask)> GetAllTasks()
         {
             var settings = await TDiousDataProvider.GetSettings();
             if (settings is null || settings.DevOpsUri is null || settings.DevOpsApiToken is null)
             {
-                return [];
+                return ([], null);
             }
 
             try
@@ -36,6 +36,7 @@ namespace TDious.Core.DevOps
                 using var witClient = connection.GetClient<WorkItemTrackingHttpClient>();
                 var workItemQueryResult = await witClient.QueryByWiqlAsync(wiql);
 
+
                 //some error handling
                 if (workItemQueryResult.WorkItems.Count() != 0)
                 {
@@ -45,7 +46,7 @@ namespace TDious.Core.DevOps
                     {
                         list.Add(item.Id);
                     }
-                    int[] arr = list.ToArray();
+                    int[] arr = [.. list];
 
                     //build a list of the fields we want to see
                     string[] fields = new string[4];
@@ -58,30 +59,72 @@ namespace TDious.Core.DevOps
                     //get work items for the id's found in query
                     var workItems = witClient.GetWorkItemsAsync(arr, fields, workItemQueryResult.AsOf).Result;
 
+                    DevOpsTask? timeTrackingTask = null;
+
+                    if (!string.IsNullOrWhiteSpace(settings.TrackingTitle))
+                    {
+                        var timeTracking = workItems.FirstOrDefault(w => w.Fields["System.Title"].ToString() == settings.TrackingTitle);
+                        if (timeTracking is not null)
+                        {
+                            workItems.Remove(timeTracking);
+
+                            timeTracking = await witClient.GetWorkItemAsync(Convert.ToInt32(timeTracking.Fields["System.Id"]), expand: WorkItemExpand.All);
+                            if (timeTracking is not null)
+                            {
+                                timeTrackingTask = new DevOpsTask
+                                {
+                                    ID = (long)timeTracking.Fields["System.Id"],
+                                    Title = timeTracking.Fields["System.Title"].ToString(),
+                                    State = timeTracking.Fields["System.State"].ToString(),
+                                    TotalIssueResearchTime = GetDoubleField(timeTracking.Fields, Constants.IssueResearchTime),
+                                    TotalMeetingsTime = GetDoubleField(timeTracking.Fields, Constants.MeetingsTime),
+                                    TotalSupportTime = GetDoubleField(timeTracking.Fields, Constants.SupportTime),
+                                    TotalItemReviewTime = GetDoubleField(timeTracking.Fields, Constants.ItemReviewTime),
+                                    TotalRequirementsTime = GetDoubleField(timeTracking.Fields, Constants.RequirementsTime),
+                                    TotalInfrastructureTime = GetDoubleField(timeTracking.Fields, Constants.InfrastructureTime),
+                                    TotalUncategorizedTime = GetDoubleField(timeTracking.Fields, Constants.UncategorizedTime)
+                                };
+                                timeTrackingTask.TotalIssueResearchTimeBackup = timeTrackingTask.TotalIssueResearchTime;
+                                timeTrackingTask.TotalMeetingsTimeBackup = timeTrackingTask.TotalMeetingsTime;
+                                timeTrackingTask.TotalSupportTimeBackup = timeTrackingTask.TotalSupportTime;
+                                timeTrackingTask.TotalItemReviewTimeBackup = timeTrackingTask.TotalItemReviewTime;
+                                timeTrackingTask.TotalRequirementsTimeBackup = timeTrackingTask.TotalRequirementsTime;
+                                timeTrackingTask.TotalInfrastructureTimeBackup = timeTrackingTask.TotalInfrastructureTime;
+                                timeTrackingTask.TotalUncategorizedTimeBackup = timeTrackingTask.TotalUncategorizedTime;
+                            }
+                        }
+                    }
+
                     var info = workItems.Select(w =>
                     {
-                        double completedWork = 0;
-                        if (w.Fields.ContainsKey(completedWorkKey))
-                        {
-                            completedWork = (double)w.Fields[fields[3]];
-                        }
                         var topic = new DevOpsTask
                         {
-                            ID = (Int64)w.Fields["System.Id"],
+                            ID = (long)w.Fields["System.Id"],
                             Title = w.Fields["System.Title"].ToString(),
                             State = w.Fields["System.State"].ToString(),
-                            TotalHours = completedWork,
+                            TotalHours = GetDoubleField(w.Fields, completedWorkKey),
+                            TotalHoursBackup = GetDoubleField(w.Fields, completedWorkKey),
                         };
                         return topic;
                     });
 
-                    return info.Reverse().OrderBy(o => o.State).ToList();
+                    return (info.Reverse().OrderBy(o => o.State).ToList(), timeTrackingTask);
                 }
 
             }
             catch { } // TODO: Error handling (send messages to UI)
 
-            return [];
+            return ([], null);
+        }
+
+        private static double GetDoubleField(IDictionary<string, object> dict, string key)
+        {
+            if (dict.ContainsKey(key))
+            {
+                return (double)dict[key];
+            }
+
+            return 0;
         }
 
         public static async Task<List<DevOpsTask>> GetParentWorkItems()
@@ -141,7 +184,7 @@ namespace TDious.Core.DevOps
             }
         }
 
-        public static async Task SaveCompletedHoursWithComment(long taskID, double newHours, string comment)
+        public static async Task SaveCompletedHoursWithComment(long taskID, double newHours, string comment, string? key = null)
         {
             var settings = await TDiousDataProvider.GetSettings();
             if (settings is null || settings.DevOpsUri is null || settings.DevOpsApiToken is null)
@@ -157,13 +200,48 @@ namespace TDious.Core.DevOps
 
             double oldHours = 0;
             var completedWorkKey = "Microsoft.VSTS.Scheduling.CompletedWork";
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                completedWorkKey = key;
+            }
             if (currentWorkItem.Fields.ContainsKey(completedWorkKey))
             {
                 oldHours = (double)currentWorkItem.Fields[completedWorkKey];
             }
             string hours = ConvertToTimeString(newHours - oldHours);
             string currentDescription = currentWorkItem.Fields["Microsoft.VSTS.Common.ItemDescription"]?.ToString() ?? string.Empty;
-            string updatedDescription = currentDescription + Environment.NewLine + "<br />" + DateTime.Today.ToShortDateString() + " (" + hours + "): " + comment;
+            string commentKey = key ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(commentKey))
+            {
+                switch (key)
+                {
+                    case Constants.IssueResearchTime:
+                        commentKey = "Issue Research";
+                        break;
+                    case Constants.MeetingsTime:
+                        commentKey = "Meetings";
+                        break;
+                    case Constants.SupportTime:
+                        commentKey = "Support";
+                        break;
+                    case Constants.ItemReviewTime:
+                        commentKey = "Item Review";
+                        break;
+                    case Constants.RequirementsTime:
+                        commentKey = "Requirements";
+                        break;
+                    case Constants.InfrastructureTime:
+                        commentKey = "Infrastructure";
+                        break;
+                    default:
+                    case Constants.UncategorizedTime:
+                        commentKey = "Uncategorized";
+                        break;
+                }
+
+                commentKey = " " + commentKey + ": ";
+            }
+            string updatedDescription = currentDescription + Environment.NewLine + "<br />" + DateTime.Today.ToShortDateString() + " (" + hours + "): " + commentKey + comment;
 
             // Create a patch document to replace the existing CompletedWork value
             JsonPatchDocument patchDocument =
@@ -171,7 +249,7 @@ namespace TDious.Core.DevOps
                 new JsonPatchOperation
                 {
                     Operation = Microsoft.VisualStudio.Services.WebApi.Patch.Operation.Replace,
-                    Path = "/fields/Microsoft.VSTS.Scheduling.CompletedWork",
+                    Path = "/fields/" + completedWorkKey,
                     Value = newHours
                 }
             ];

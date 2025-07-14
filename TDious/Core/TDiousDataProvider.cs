@@ -40,12 +40,21 @@ namespace TDious.Core
             return settingss?.Query()?.FirstOrDefault();
         }
 
-        public static async Task<double> GetHoursCompletedToday(List<DevOpsTask> devOpsTasks, bool resetCache = false)
+        public static async Task<double> GetHoursCompletedToday(List<DevOpsTask> doTasks, DevOpsTask? timeTrackingTask, bool resetCache = false)
         {
             using var db = new LiteDatabase(await GetConnectionString());
             var tasks = db.GetCollection<TDiousTask>("tasks");
 
-            devOpsTasks = devOpsTasks ?? await DevOpsProvider.GetAllTasks();
+            List<DevOpsTask> devOpsTasks = new(doTasks);
+            if (devOpsTasks is null || !devOpsTasks.Any())
+            {
+                (devOpsTasks, timeTrackingTask) = await DevOpsProvider.GetAllTasks();
+            }
+
+            if (timeTrackingTask is not null)
+            {
+                devOpsTasks.Insert(0, timeTrackingTask);
+            }
 
             var tdTasks = tasks?.Query()?.ToList() ?? new List<TDiousTask>();
             var now = DateTime.Now;
@@ -89,23 +98,19 @@ namespace TDious.Core
             {
                 IEnumerable<TDiousTask> getConverted(IEnumerable<DevOpsTask> doTasks, double? overrideHours = null)
                 {
-                    return doTasks.Select(t => new TDiousTask
-                    {
-                        WorkItemID = t.ID,
-                        Hours = overrideHours ?? t.TotalHours,
-                        CacheDateTime = now,
+                    return doTasks.Select(t => {
+                        return new TDiousTask
+                        {
+                            WorkItemID = t.ID,
+                            Hours = overrideHours ?? t.GetTrueTotalHours(),
+                            CacheDateTime = now,
+                        };
                     });
                 }
 
                 if (oldDevOps.Any() == true)
                 {
                     double total = 0;
-
-                    //// Delete all the items cached not today (previous days)
-                    //if (oldCache.Any())
-                    //{
-                    //    tasks.DeleteMany(t => oldCache.Contains(t));
-                    //}
 
                     if (oldDevOps.Any())
                     {
@@ -115,7 +120,7 @@ namespace TDious.Core
                             var oldCachedTask = oldCache.FirstOrDefault(o => o.WorkItemID == doTask.ID);
                             if (oldCachedTask != null)
                             {
-                                oldCachedTask.Hours = doTask.TotalHours;
+                                oldCachedTask.Hours = doTask.GetTrueTotalHours();
                                 oldCachedTask.CacheDateTime = now;
                                 tasks.Update(oldCachedTask);
                             }
@@ -124,9 +129,9 @@ namespace TDious.Core
                                 var cachedTodayTask = cachedToday.FirstOrDefault(o => o.WorkItemID == doTask.ID);
                                 if (cachedTodayTask != null)
                                 {
-                                    if (doTask.TotalHours > cachedTodayTask.Hours)
+                                    if (doTask.GetTrueTotalHours() > cachedTodayTask.Hours)
                                     {
-                                        total += (doTask.TotalHours - cachedTodayTask.Hours);
+                                        total += (doTask.GetTrueTotalHours() - cachedTodayTask.Hours);
                                     }
                                 }
                             }
@@ -136,12 +141,7 @@ namespace TDious.Core
                     {
                         foreach (var doTask in newDevOps)
                         {
-                            //if (cachedToday.Any())
-                            //{
-                                //// this wasn't cached before. If it has any hours and there were already items cached before, it should count to the new total
-                                total += doTask.TotalHours;
-                            //}
-                            //// else: if there was nothing cached today, it's the first time running today, so we shouldn't count it (we're not going to bother loading the last time the work item was modified -- we just assume TDious was running before work started)
+                            total += doTask.GetTrueTotalHours();
                         }
                         // these are new tasks. Cache as 0 hours so we credit them in later calculations
                         var converted = getConverted(newDevOps, overrideHours: 0);
@@ -173,9 +173,9 @@ namespace TDious.Core
                     var devOpsTask = devOpsTasks.FirstOrDefault(t => t.ID == tdTask.WorkItemID);
                     if (devOpsTask != null)
                     {
-                        if (devOpsTask.TotalHours > tdTask.Hours)
+                        if (devOpsTask.GetTrueTotalHours() > tdTask.Hours)
                         {
-                            total += (devOpsTask.TotalHours - tdTask.Hours);
+                            total += (devOpsTask.GetTrueTotalHours() - tdTask.Hours);
                         }
                     }
                 }

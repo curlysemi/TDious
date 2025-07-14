@@ -34,6 +34,7 @@
         </div>
     </div>
 </div>
+
 @if (isModalVisible)
 {
     <div class="modal-backdrop fade show"></div>
@@ -68,7 +69,74 @@
 }
 else
 {
-    <table class="table">
+    <table class="table table-striped">
+        @if (enableCustomTimeTrackingLineItems && timeTrackingTask is not null)
+        {
+            <thead>
+                <tr>
+                    <th>
+                        Time Tracking
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <table>
+                            <tr>
+                                <th></th>
+                                <th>Issue Research</th>
+                                <th>Meetings</th>
+                                <th>Support</th>
+                                <th>Item Review</th>
+                                <th>Requirements</th>
+                                <th>Infrastructure</th>
+                                <th>Uncategorized</th>
+                            </tr>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <strong>Total:</strong>
+                                        <br />
+                                        <strong>Add:</strong>
+                                    </td>
+                                    <td>
+                                        <input @bind="timeTrackingTask.TotalIssueResearchTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.IssueResearchTime, "Issue Research Time", e.Value?.ToString(), isAdd: false))" step="0.25" placeholder="0.00">
+                                        <input @bind="timeTrackingTask.AddIssueResearchTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.IssueResearchTime, "Issue Research Time", e.Value?.ToString(), isAdd: true))" step="0.25" placeholder="0.00">
+                                    </td>
+                                    <td>
+                                        <input @bind="timeTrackingTask.TotalMeetingsTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.MeetingsTime, "Meetings Time", e.Value?.ToString(), isAdd: false))" step="0.25" placeholder="0.00">
+                                        <input @bind="timeTrackingTask.AddMeetingsTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.MeetingsTime, "Meetings Time", e.Value?.ToString(), isAdd: true))" step="0.25" placeholder="0.00">
+                                    </td>
+                                    <td>
+                                        <input @bind="timeTrackingTask.TotalSupportTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.SupportTime, "Support Time", e.Value?.ToString(), isAdd: false))" step="0.25" placeholder="0.00">
+                                        <input @bind="timeTrackingTask.AddSupportTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.SupportTime, "Support Time", e.Value?.ToString(), isAdd: true))" step="0.25" placeholder="0.00">
+                                    </td>
+                                    <td>
+                                        <input @bind="timeTrackingTask.TotalItemReviewTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.ItemReviewTime, "Item Review Time", e.Value?.ToString(), isAdd: false))" step="0.25" placeholder="0.00">
+                                        <input @bind="timeTrackingTask.AddItemReviewTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.ItemReviewTime, "Item Review Time", e.Value?.ToString(), isAdd: true))" step="0.25" placeholder="0.00">
+                                    </td>
+                                    <td>
+                                        <input @bind="timeTrackingTask.TotalRequirementsTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.RequirementsTime, "Requirements Time", e.Value?.ToString(), isAdd: false))" step="0.25" placeholder="0.00">
+                                        <input @bind="timeTrackingTask.AddRequirementsTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.RequirementsTime, "Requirements Time", e.Value?.ToString(), isAdd: true))" step="0.25" placeholder="0.00">
+                                    </td>
+                                    <td>
+                                        <input @bind="timeTrackingTask.TotalInfrastructureTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.InfrastructureTime, "Infrastructure Time", e.Value?.ToString(), isAdd: false))" step="0.25" placeholder="0.00">
+                                        <input @bind="timeTrackingTask.AddInfrastructureTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.InfrastructureTime, "Infrastructure Time", e.Value?.ToString(), isAdd: true))" step="0.25" placeholder="0.00">
+                                    </td>
+                                    <td>
+                                        <input @bind="timeTrackingTask.TotalUncategorizedTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.UncategorizedTime, "Uncategorized Time", e.Value?.ToString(), isAdd: false))" step="0.25" placeholder="0.00">
+                                        <input @bind="timeTrackingTask.AddUncategorizedTime" type="number" min="0" class="form-control" @oninput="@(e => OnBucketHoursChanged(timeTrackingTask.ID, Constants.UncategorizedTime, "Uncategorized Time", e.Value?.ToString(), isAdd: true))" step="0.25" placeholder="0.00">
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+            </tbody>
+        }
+    </table>
+    <table class="table table-striped">
         <thead>
             <tr>
                 <th>ID</th>
@@ -104,31 +172,38 @@ else
 
     private bool isLoading = true;
     private bool isModalVisible = false;
+    private bool isBucketModalVisible = false;
+
     private List<Core.DevOps.DevOpsTask> devOpsTasks = new();
+    private Core.DevOps.DevOpsTask? timeTrackingTask = new();
     private double totalHoursCompletedToday;
     private Dictionary<long, CancellationTokenSource> DebounceTokens = new();
 
     private long currentTaskID;
     private string currentTaskTitle = string.Empty;
     private double currentTaskHours;
+    private string currentBucketTaskKey;
     private double currentTask_newTotalHoursCompletedToday;
     private string currentTaskMessage = string.Empty;
 
     private async Task Refresh()
     {
         isLoading = true;
-        devOpsTasks = await Core.DevOps.DevOpsProvider.GetAllTasks();
-        totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks);
+        (devOpsTasks, timeTrackingTask) = await Core.DevOps.DevOpsProvider.GetAllTasks();
+        totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks, timeTrackingTask);
         isLoading = false;
     }
 
     private async Task ResetCache()
     {
         isLoading = true;
-        devOpsTasks = await Core.DevOps.DevOpsProvider.GetAllTasks() ?? new List<Core.DevOps.DevOpsTask>();
-        totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks, resetCache: true);
+        (devOpsTasks, timeTrackingTask) = await Core.DevOps.DevOpsProvider.GetAllTasks();
+        devOpsTasks = devOpsTasks ?? new List<Core.DevOps.DevOpsTask>();
+        totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks, timeTrackingTask, resetCache: true);
         isLoading = false;
     }
+
+    private bool enableCustomTimeTrackingLineItems;
 
     protected override async Task OnInitializedAsync()
     {
@@ -138,13 +213,17 @@ else
         if (settings != null)
         {
             enableComments = settings.EnableComments;
+            enableCustomTimeTrackingLineItems = !string.IsNullOrWhiteSpace(settings.TrackingTitle);
         }
         await Refresh();
     }
 
     private async Task OnHoursChanged(long key, string? newValue, bool isAdd)
     {
-        if (newValue is null) return;
+        if (newValue is null)
+        {
+            return;
+        }
 
         if (!double.TryParse(newValue, out double value))
         {
@@ -172,13 +251,105 @@ else
             if (isAdd)
             {
                 currentTask_newTotalHoursCompletedToday = totalHoursCompletedToday + value;
-                currentTaskHours = thisTask.TotalHours + value;
+                currentTaskHours = thisTask.TotalHoursBackup + value;
             }
             else
             {
-                currentTask_newTotalHoursCompletedToday = totalHoursCompletedToday + (value - thisTask.TotalHours);
+                currentTask_newTotalHoursCompletedToday = totalHoursCompletedToday + (value - thisTask.TotalHoursBackup);
             }
             currentTaskTitle = thisTask.Title ?? "(No title)";
+            if (enableComments)
+            {
+                ShowModal();
+                StateHasChanged();
+            }
+            else
+            {
+                await UpdateTask();
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // Ignore cancellations (new input came in)
+        }
+    }
+
+    private async Task OnBucketHoursChanged(long id, string key, string display, string? newValue, bool isAdd)
+    {
+        if (timeTrackingTask is null)
+        {
+            return;
+        }
+
+        if (newValue is null)
+        {
+            return;
+        }
+
+        if (!double.TryParse(newValue, out double value))
+        {
+            return;
+        }
+
+        // Cancel any existing debounce for this key
+        if (DebounceTokens.TryGetValue(id, out var existingToken))
+        {
+            existingToken.Cancel();
+            existingToken.Dispose();
+        }
+
+        // Create a new debounce token
+        var tokenSource = new CancellationTokenSource();
+        DebounceTokens[id] = tokenSource;
+
+        try
+        {
+            // Wait 3 seconds before saving
+            await Task.Delay(3000, tokenSource.Token);
+            currentTaskID = id;
+            currentBucketTaskKey = key;
+            currentTaskHours = value;
+
+            void setCurrentTaskHours(double currentTotalHours)
+            {
+                if (isAdd)
+                {
+                    currentTask_newTotalHoursCompletedToday = totalHoursCompletedToday + value;
+                    currentTaskHours = currentTotalHours + value;
+                }
+                else
+                {
+                    currentTask_newTotalHoursCompletedToday = totalHoursCompletedToday + (value - currentTotalHours);
+                }
+            }
+
+            switch (key)
+            {
+                case Constants.IssueResearchTime:
+                    setCurrentTaskHours(timeTrackingTask.TotalIssueResearchTimeBackup);
+                    break;
+                case Constants.MeetingsTime:
+                    setCurrentTaskHours(timeTrackingTask.TotalMeetingsTimeBackup);
+                    break;
+                case Constants.SupportTime:
+                    setCurrentTaskHours(timeTrackingTask.TotalSupportTimeBackup);
+                    break;
+                case Constants.ItemReviewTime:
+                    setCurrentTaskHours(timeTrackingTask.TotalItemReviewTimeBackup);
+                    break;
+                case Constants.RequirementsTime:
+                    setCurrentTaskHours(timeTrackingTask.TotalRequirementsTimeBackup);
+                    break;
+                case Constants.InfrastructureTime:
+                    setCurrentTaskHours(timeTrackingTask.TotalInfrastructureTimeBackup);
+                    break;
+                default:
+                case Constants.UncategorizedTime:
+                    setCurrentTaskHours(timeTrackingTask.TotalUncategorizedTimeBackup);
+                    break;
+            }
+
+            currentTaskTitle = display;
             if (enableComments)
             {
                 ShowModal();
@@ -216,6 +387,7 @@ else
     private void HideModal()
     {
         isModalVisible = false;
+        isBucketModalVisible = false;
     }
 
     private async Task CancelUpdate()
@@ -227,6 +399,7 @@ else
             currentTaskHours = 0;
             currentTaskMessage = string.Empty;
             currentTask_newTotalHoursCompletedToday = 0;
+            currentBucketTaskKey = string.Empty;
             await Refresh();
         }
         HideModal();
@@ -242,7 +415,7 @@ else
         isLoading = true;
         StateHasChanged();
 
-        await Core.DevOps.DevOpsProvider.SaveCompletedHoursWithComment(currentTaskID, currentTaskHours, currentTaskMessage);
+        await Core.DevOps.DevOpsProvider.SaveCompletedHoursWithComment(currentTaskID, currentTaskHours, currentTaskMessage, currentBucketTaskKey);
 
         var thisTask = devOpsTasks.FirstOrDefault(t => t.ID == currentTaskID);
         if (thisTask != null)
@@ -250,7 +423,7 @@ else
             thisTask.AddHours = 0;
             thisTask.TotalHours = currentTaskHours;
             // Update local state
-            totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks);
+            totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks, timeTrackingTask);
         }
 
         currentTaskID = 0;
