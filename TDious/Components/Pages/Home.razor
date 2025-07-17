@@ -172,7 +172,6 @@ else
 
     private bool isLoading = true;
     private bool isModalVisible = false;
-    private bool isBucketModalVisible = false;
 
     private List<Core.DevOps.DevOpsTask> devOpsTasks = new();
     private Core.DevOps.DevOpsTask? timeTrackingTask = new();
@@ -182,7 +181,7 @@ else
     private long currentTaskID;
     private string currentTaskTitle = string.Empty;
     private double currentTaskHours;
-    private string currentBucketTaskKey;
+    private string currentBucketTaskKey = string.Empty;
     private double currentTask_newTotalHoursCompletedToday;
     private string currentTaskMessage = string.Empty;
 
@@ -387,7 +386,6 @@ else
     private void HideModal()
     {
         isModalVisible = false;
-        isBucketModalVisible = false;
     }
 
     private async Task CancelUpdate()
@@ -418,10 +416,47 @@ else
         await Core.DevOps.DevOpsProvider.SaveCompletedHoursWithComment(currentTaskID, currentTaskHours, currentTaskMessage, currentBucketTaskKey);
 
         var thisTask = devOpsTasks.FirstOrDefault(t => t.ID == currentTaskID);
-        if (thisTask != null)
+        if (thisTask is not null)
         {
             thisTask.AddHours = 0;
             thisTask.TotalHours = currentTaskHours;
+            // Update local state
+            totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks, timeTrackingTask);
+        }
+        if (thisTask is null && currentTaskID == timeTrackingTask?.ID)
+        {
+            switch (currentBucketTaskKey)
+            {
+                case Constants.IssueResearchTime:
+                    timeTrackingTask.AddIssueResearchTime = 0;
+                    timeTrackingTask.TotalIssueResearchTime = currentTaskHours;
+                    break;
+                case Constants.MeetingsTime:
+                    timeTrackingTask.AddMeetingsTime = 0;
+                    timeTrackingTask.TotalMeetingsTime = currentTaskHours;
+                    break;
+                case Constants.SupportTime:
+                    timeTrackingTask.AddSupportTime = 0;
+                    timeTrackingTask.TotalSupportTime = currentTaskHours;
+                    break;
+                case Constants.ItemReviewTime:
+                    timeTrackingTask.AddItemReviewTime = 0;
+                    timeTrackingTask.TotalItemReviewTime = currentTaskHours;
+                    break;
+                case Constants.RequirementsTime:
+                    timeTrackingTask.AddRequirementsTime = 0;
+                    timeTrackingTask.TotalRequirementsTime = currentTaskHours;
+                    break;
+                case Constants.InfrastructureTime:
+                    timeTrackingTask.AddInfrastructureTime = 0;
+                    timeTrackingTask.TotalInfrastructureTime = currentTaskHours;
+                    break;
+                default:
+                case Constants.UncategorizedTime:
+                    timeTrackingTask.AddUncategorizedTime = 0;
+                    timeTrackingTask.TotalUncategorizedTime = currentTaskHours;
+                    break;
+            }
             // Update local state
             totalHoursCompletedToday = await Core.TDiousDataProvider.GetHoursCompletedToday(devOpsTasks, timeTrackingTask);
         }
@@ -431,6 +466,7 @@ else
         currentTaskHours = 0;
         currentTaskMessage = string.Empty;
         currentTask_newTotalHoursCompletedToday = 0;
+        currentBucketTaskKey = string.Empty;
         HideModal();
         StateHasChanged();
         isLoading = false;
